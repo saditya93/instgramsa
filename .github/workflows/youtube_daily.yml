@@ -1,0 +1,42 @@
+name: Daily YouTube Shorts Upload
+
+on:
+  schedule:
+    - cron: '0 1 * * *' # every day 6:30 AM IST (6:00 AM UTC)
+  workflow_dispatch:
+
+jobs:
+  upload:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v3
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+
+    - name: Install FFmpeg
+      run: |
+        sudo apt update
+        sudo apt install -y ffmpeg
+
+<<<<<<< HEAD
+    - name: Decode YouTube credentials
+      run: |
+        echo "${{ secrets.YOUTUBE_CREDENTIALS_BASE64 }}" | base64 -d > credentials.json
+      
+=======
+    - name: Decode secrets into files 
+      run: |
+        echo "${{ secrets.CLIENT_SECRETS_B64 }}" | base64 -d > client_secrets.json
+        echo "${{ secrets.YOUTUBE_REFRESH_TOKEN }}" | base64 -d > token.pickle
+     
+>>>>>>> bf040ae (Fix YouTube upload workflow)
+    - name: Install dependencies
+      run: pip install -r requirements.txt
+
+    - name: Run daily upload script
+      run: python run.py

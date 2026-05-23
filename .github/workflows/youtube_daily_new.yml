@@ -1,0 +1,72 @@
+name: Daily YouTube Shorts Upload
+
+on:
+  schedule:
+    - cron: '0 1 * * *' # every day 6:30 AM IST (6:00 AM UTC)
+  workflow_dispatch:
+
+jobs:
+  upload:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v3
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+
+    - name: Install FFmpeg
+      run: |
+        sudo apt update
+        sudo apt install -y ffmpeg
+
+    - name: Decode YouTube credentials
+      env:
+        YOUTUBE_CREDENTIALS_BASE64: ${{ secrets.YOUTUBE_CREDENTIALS_BASE64 }}
+        YOUTUBE_CREDENTIALS_JSON: ${{ secrets.YOUTUBE_CREDENTIALS_JSON }}
+      run: |
+        python - <<'PY'
+        import base64
+        import json
+        import os
+        import sys
+
+        raw_json = os.getenv("YOUTUBE_CREDENTIALS_JSON", "").strip()
+        raw_b64 = os.getenv("YOUTUBE_CREDENTIALS_BASE64", "").strip()
+
+        candidates = []
+        if raw_json:
+            candidates.append(raw_json)
+        if raw_b64:
+            candidates.append(raw_b64)
+            try:
+                candidates.append(base64.b64decode(raw_b64).decode("utf-8"))
+            except Exception:
+                pass
+
+        for candidate in candidates:
+            try:
+                data = json.loads(candidate)
+            except Exception:
+                continue
+
+            if data.get("type") == "authorized_user" and data.get("refresh_token"):
+                with open("credentials.json", "w", encoding="utf-8") as handle:
+                    json.dump(data, handle, indent=2)
+                print("✅ credentials.json written")
+                break
+        else:
+            sys.exit(
+                "❌ Invalid YouTube credentials. Set YOUTUBE_CREDENTIALS_BASE64 with a base64-encoded credentials.json "
+                "or set YOUTUBE_CREDENTIALS_JSON with the raw authorized_user JSON."
+            )
+        PY
+      
+    - name: Install dependencies
+      run: pip install -r requirements.txt
+
+    - name: Run daily upload script
+      run: python run.py
