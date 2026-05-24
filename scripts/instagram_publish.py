@@ -7,8 +7,8 @@ from scripts.host_video import get_or_upload
 
 
 GRAPH_VERSION = os.getenv("GRAPH_API_VERSION", "v17.0")
-CONTAINER_POLL_ATTEMPTS = 12
-CONTAINER_POLL_SECONDS = 5
+CONTAINER_POLL_ATTEMPTS = int(os.getenv("IG_CONTAINER_POLL_ATTEMPTS", "60"))
+CONTAINER_POLL_SECONDS = int(os.getenv("IG_CONTAINER_POLL_SECONDS", "10"))
 
 
 def _print_graph_error(response, context):
@@ -33,8 +33,12 @@ def _wait_for_container_ready(creation_id, token):
 
         data = response.json()
         status_code = data.get("status_code")
-        status = data.get("status")
-        print(f"Instagram media processing: {status_code or status or 'unknown'}")
+        status = data.get("status") or ""
+        status_text = f" - {status}" if status and status != status_code else ""
+        print(
+            f"Instagram media processing "
+            f"({attempt}/{CONTAINER_POLL_ATTEMPTS}): {status_code or 'unknown'}{status_text}"
+        )
 
         if status_code == "FINISHED":
             return True
@@ -45,7 +49,8 @@ def _wait_for_container_ready(creation_id, token):
         if attempt < CONTAINER_POLL_ATTEMPTS:
             time.sleep(CONTAINER_POLL_SECONDS)
 
-    print("Instagram media was not ready before timeout")
+    timeout_seconds = CONTAINER_POLL_ATTEMPTS * CONTAINER_POLL_SECONDS
+    print(f"Instagram media was not ready before timeout ({timeout_seconds} seconds)")
     return False
 
 
