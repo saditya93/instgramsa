@@ -1,6 +1,6 @@
 import os
 from datetime import date
-from urllib.parse import quote
+from urllib.parse import quote, unquote, urlparse
 
 import requests
 
@@ -12,9 +12,21 @@ def get_public_url_from_env():
 
 def get_cloudinary_url_from_env():
     url = os.getenv("CLOUDINARY_URL", "").strip().strip('"').strip("'")
-    if url.startswith("CLOUDINARY_URL="):
-        url = url.split("=", 1)[1].strip().strip('"').strip("'")
+    if "cloudinary://" in url:
+        url = url[url.index("cloudinary://") :].strip().strip('"').strip("'")
     return url
+
+
+def parse_cloudinary_url(url):
+    parsed = urlparse(url)
+    if parsed.scheme != "cloudinary" or not parsed.username or not parsed.password or not parsed.hostname:
+        return None
+
+    return {
+        "cloud_name": parsed.hostname,
+        "api_key": unquote(parsed.username),
+        "api_secret": unquote(parsed.password),
+    }
 
 
 def is_publicly_accessible(url):
@@ -53,10 +65,11 @@ def upload_to_cloudinary(file_path):
         import cloudinary.uploader
 
         if has_cloudinary_url:
-            if not cloudinary_url.startswith("cloudinary://"):
-                print("Cloudinary upload failed: CLOUDINARY_URL must start with cloudinary://")
+            config = parse_cloudinary_url(cloudinary_url)
+            if not config:
+                print("Cloudinary upload failed: CLOUDINARY_URL must look like cloudinary://API_KEY:API_SECRET@CLOUD_NAME")
                 return None
-            cloudinary.config(cloudinary_url=cloudinary_url, secure=True)
+            cloudinary.config(**config, secure=True)
         else:
             cloudinary.config(
                 cloud_name=os.getenv("CLOUDINARY_CLOUD_NAME"),
