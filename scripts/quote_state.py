@@ -39,11 +39,12 @@ def select_daily_quote(quotes):
 
     today = date.today().isoformat()
     state = _load_state()
+    quote_texts = {quote["q"] for quote in quotes}
 
-    if today in state["daily_quotes"]:
+    if today in state["daily_quotes"] and state["daily_quotes"][today].get("q") in quote_texts:
         return state["daily_quotes"][today]
 
-    used_quotes = set(state["used_quotes"])
+    used_quotes = set(state["used_quotes"]) & quote_texts
     available_quotes = [quote for quote in quotes if quote["q"] not in used_quotes]
 
     if not available_quotes:
