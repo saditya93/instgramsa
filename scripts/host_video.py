@@ -10,6 +10,13 @@ def get_public_url_from_env():
     return url.strip() if url else None
 
 
+def get_cloudinary_url_from_env():
+    url = os.getenv("CLOUDINARY_URL", "").strip().strip('"').strip("'")
+    if url.startswith("CLOUDINARY_URL="):
+        url = url.split("=", 1)[1].strip().strip('"').strip("'")
+    return url
+
+
 def is_publicly_accessible(url):
     headers = {"User-Agent": "facebookexternalhit/1.1"}
 
@@ -32,7 +39,8 @@ def is_publicly_accessible(url):
 
 
 def upload_to_cloudinary(file_path):
-    has_cloudinary_url = bool(os.getenv("CLOUDINARY_URL"))
+    cloudinary_url = get_cloudinary_url_from_env()
+    has_cloudinary_url = bool(cloudinary_url)
     has_cloudinary_keys = all(
         os.getenv(name)
         for name in ("CLOUDINARY_CLOUD_NAME", "CLOUDINARY_API_KEY", "CLOUDINARY_API_SECRET")
@@ -44,7 +52,12 @@ def upload_to_cloudinary(file_path):
         import cloudinary
         import cloudinary.uploader
 
-        if not has_cloudinary_url:
+        if has_cloudinary_url:
+            if not cloudinary_url.startswith("cloudinary://"):
+                print("Cloudinary upload failed: CLOUDINARY_URL must start with cloudinary://")
+                return None
+            cloudinary.config(cloudinary_url=cloudinary_url, secure=True)
+        else:
             cloudinary.config(
                 cloud_name=os.getenv("CLOUDINARY_CLOUD_NAME"),
                 api_key=os.getenv("CLOUDINARY_API_KEY"),
@@ -156,6 +169,11 @@ def get_or_upload(file_path):
         if is_publicly_accessible(cloudinary_url):
             return cloudinary_url
         print("Cloudinary URL is not publicly accessible")
+        return None
+
+    if get_cloudinary_url_from_env() or os.getenv("CLOUDINARY_CLOUD_NAME"):
+        print("Cloudinary is configured but upload failed. Not falling back to GitHub.")
+        return None
 
     try:
         github_url = upload_to_github_release(file_path)
